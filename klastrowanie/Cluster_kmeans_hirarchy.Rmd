@@ -1,0 +1,176 @@
+---
+title: "Klastrowanie - k-średnich oraz hierarchiczne"
+author: "Mateusz Pieszczek"
+date: "4 lutego 2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    theme: cerulean
+    highlight: tango
+    df_print: paged
+---
+
+### Potrzebne biblioteki
+```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+library(cluster.datasets)
+library(tidyverse)
+library(tidymodels)
+library("cluster")
+library("factoextra")
+```
+
+### Zbiór danych
+##### Uzyjemy zbioru danych mleka różnych ssaków.
+
+Ładowanie i wyswietlanie zbiór danych `all.mammals.milk.1956`. Dane zawierają wartości procentowe. Np mleko końskie ma 90.1% wody oraz 1% tłuszczu.
+
+```{r}
+data(all.mammals.milk.1956)
+all.mammals.milk.1956
+```
+
+### Dodajmy do ramki danych poniższe dane mleka ludzkiego.
+
+```{r}
+Man <- data.frame(
+  name = "Man",
+  water = 88.1,
+  protein = 0.85,
+  fat = 0.4,
+  lactose = 7.0,
+  ash = 0.2
+)
+mammals <- rbind(Man, all.mammals.milk.1956)
+mammals
+```
+
+### Ze względu na grupowanie i łatwiejszy odczyt późniejszych wyników użyjemy kolumny `name` jako klucza głównego.
+
+```{r}
+ssaki <- mammals
+rownames(ssaki) <- ssaki$name
+ssaki <- ssaki %>% select(-name)
+ssaki %>% head(5)
+```
+
+
+### Wstępne przeskalowanie danych:
+
+```{r}
+ssaki_scaled <- ssaki %>% scale()
+ssaki_scaled
+```
+
+## Grupowanie metodą $k$-średnich
+
+##### Wyznaczamy podział na 3 klastry z pomocą algorytmy k-średnich. 
+```{r}
+set.seed(1234)
+klastry_k_means <- ssaki_scaled %>%
+  kmeans(centers = 3, iter.max = 100, nstart = 25)
+```
+
+### Czy nasz podział ma sens?
+Najmniejszy klaster to nr 3 jest w nim tylko foka i delfin. Widać że proporcje się u nich znacząco różnią. Posiadają bardzo mało wody i dużo tłuszczu. Jeżeli spojrzymy na oryginalne dane to jest to poniżej 50% wody i powyżej 30% tłuszczu.
+Różnice między klastrem 1 i 2 są bardziej subtelnę to ciężko ocenić. Na pewno 1 posiadają więcej białka oraz posiadają średnio mniej wody i laktozy.
+```{r}
+ssaki_scaled_z_klastrem <- klastry_k_means %>%
+  augment(ssaki_scaled)
+
+ssaki_scaled_z_klastrem %>%
+  count(.cluster)
+ssaki_scaled_z_klastrem %>%
+  filter(.cluster == 1)
+ssaki_scaled_z_klastrem %>%
+  filter(.cluster == 2)
+ssaki_scaled_z_klastrem %>%
+  filter(.cluster == 3)
+mammals %>%
+  filter(name == "Dolphin" | name == "Seal")
+```
+
+
+
+## Grupowanie hierarchiczne
+
+#####  Zastosujemy teraz metodę klastrowania hierarchicznego z łączeniami *complete*, *average* i *single*.
+
+```{r}
+# maciez odległosci
+res.dist <- dist(ssaki_scaled, method = "euclidean")
+as.matrix(res.dist)[1:6, 1:6]
+```
+
+```{r}
+model_complete <- hclust(d = res.dist, method = "complete")
+model_average <- hclust(d = res.dist, method = "average")
+model_single <- hclust(d = res.dist, method = "single")
+```
+```{r}
+fviz_dend(model_complete,
+  k = 3, # liczba grup
+  cex = 0.5, # rozmiar etykiet
+  # k_colors = c("#2E9FDF", "#00AFBB", "#E7B800",),
+  color_labels_by_k = TRUE,
+  rect = TRUE,
+  main = "Complete"
+)
+
+fviz_dend(model_average,
+  k = 3, # liczba grup
+  cex = 0.5, # rozmiar etykiet
+  # k_colors = c("#2E9FDF", "#00AFBB", "#E7B800",),
+  color_labels_by_k = TRUE,
+  rect = TRUE,
+  main = "Average"
+)
+fviz_dend(model_single,
+  k = 3, # liczba grup
+  cex = 0.5, # rozmiar etykiet
+  # k_colors = c("#2E9FDF", "#00AFBB", "#E7B800",),
+  color_labels_by_k = TRUE,
+  rect = TRUE,
+  main = "Single"
+)
+```
+
+## Wnioski
+
+Jak widać grupa nr 3 się ostała jest na tyle charakterystyczna że jest wykrywana w każdym przypadku. O pozostałych ciężko powiedzieć to samo.
+
+
+
+##### Jeżeli zadamy sobie pytanie: Do kogo w tym zbiorze danych najbardziej podobny jest człowiek? To najłatiwej chyba spojrzeć na macierz odległości, z użyciem metryki euklidesowej.
+
+Najbardziej podobnym do człowieka(poza samym człowiekiem) na tym zbiorze danych jest jest małpa.
+```{r}
+as.matrix(res.dist)[1, ] %>% sort()
+```
+
+
+
+
+##### Podobnie możemy odczytać, że 2 najbardziej do siebie zblizone gatunki to sarna i renifer.
+
+```{r}
+min_dist <- min(res.dist) # res.dist nie ma przękątnych więc minimum bedize poprzwne
+distance_matrix <- as.matrix(res.dist) # mapujemy do macierzy żeby móć uzyć funkcji which, res.dist jest klasy dist która nie ma wielu funkcji szukania
+which(distance_matrix == min_dist, arr.ind = TRUE)
+min_dist
+```
+
+##### Z dendrogramu można wyczytać dosyć nieintuicyjne podobieństwa składu mleka.
+Tak jak podejrzewamy podobieństwo foka jest podobna do delfina(ssaki wodne). Zaskakują gatunki podobne do człowieka (gałąź po lewej), poza małpą i orangutanem pojawiają się tam o dziwo: hipopotam, koń, muł i osioł. W szczególności koń który jest prawie tak samo podobny do człowieka jak małpa.
+
+```{r}
+fviz_dend(model_complete,
+  k = 3, # liczba grup
+  cex = 0.5, # rozmiar etykiet
+  # k_colors = c("#2E9FDF", "#00AFBB", "#E7B800",),
+  color_labels_by_k = TRUE,
+  rect = TRUE,
+  main = "Complete"
+)
+```
+

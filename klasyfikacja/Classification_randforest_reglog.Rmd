@@ -1,0 +1,184 @@
+---
+title: "Klasyfikacja - lasy losowe, regresja logistyczna porównanie"
+author: "Mateusz Pieszczek"
+date: "4 lutego 2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    theme: cerulean
+    highlight: tango
+    df_print: paged
+---
+
+
+
+## Ładowanie bibliotek
+```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(randomForest)
+library(tidymodels)
+library(vip)
+```
+
+## Zbiór danych
+Uzyjemy zbioru danych `banknote_authentication.csv`. Z jego opisem możesz zapoznać się [na tej stronie](https://www.openml.org/d/1462).
+
+```{r}
+banknoty <- read_csv("banknote_authentication.csv")
+banknoty$Class <- factor(banknoty$Class)
+is.factor(banknoty$Class)
+```
+
+Zmienna Class przechowuje informacje o autentycznośći banknotu. Zgodnie z dokumentacją: "1" to banknot autentyczny, "2" to banknot fałszywy.
+Zobaczmy jaki jest stosunek tych 2 klas w naszym zbiorze.
+```{r}
+banknoty %>% count(Class)
+```
+
+Zamieńmy tą zmienną na coś bardziej czytelnego:
+```{r}
+banknoty$Class <- factor(banknoty$Class, labels = c("True", "Fake"))
+banknoty
+```
+
+Podzielmy zbiór na treningowy i testowy w stosunku 60/40 z zachowaniem proporcji zmiennej Class, którą będziemy chcieli przewidywać.
+
+```{r}
+set.seed(1234)
+banknoty_split <- initial_split(banknoty, strata = Class, prop = 0.6)
+banknoty_train <- training(banknoty_split)
+banknoty_test <- testing(banknoty_split)
+# sprawdzenie:
+banknoty_test %>% count(Class)
+banknoty_train %>% count(Class)
+count(banknoty_test) / (count(banknoty_train) + count(banknoty_test))
+count(banknoty_train) / (count(banknoty_train) + count(banknoty_test))
+```
+
+## Lasy losowe
+
+Zróbmy klasyfikacje przy użyciu lasu losowego dla wszystkich predykatorów.
+
+```{r}
+set.seed(1234)
+model_rf <- randomForest(Class ~ ., banknoty_train)
+model_rf
+```
+
+### Dokładność modelu
+
+"OOB estimate of  error rate: 0.61%" - błąd klasyfikacji wynosi 0.61% a więc dokładność która wynosi 100%-błąd = 99.39.
+Możemy też policzyć z macierzy pomyłek: (TP+TN)/n
+Dokładność:
+```{r}
+(model_rf$confusion[1, 1] + model_rf$confusion[2, 2]) / count(banknoty_train)
+```
+
+### Dokładność na zbiorze testowym:
+Predykcja:
+
+```{r}
+pred_rf <- predict(model_rf, banknoty_test)
+# pred_rf %>% head()
+```
+
+
+### Macierz pomyłek:
+
+```{r}
+conf_rf <- table(prognoza = pred_rf, prawda = banknoty_test$Class)
+conf_rf
+```
+
+
+### Dokładność predykcji na zbiorze testowym:
+
+```{r}
+# dokładność:
+acc_rf <- (conf_rf[1, 1] + conf_rf[2, 2]) / count(banknoty_test)
+acc_rf
+```
+
+
+## Regresja logistyczna
+
+Dla tych samych danych spróbujmy zrobić regresję logistyczną. Przyjmijmy punkt odcięcia $p = 0.5$.
+Tak jak poprzednio używamy wszystkich dostepnych zmiennych
+```{r}
+model_glm <- glm(Class ~ ., data = banknoty_train, family = "binomial")
+summary(model_glm)
+```
+
+```{r}
+# bierzemy
+banknoty_test_prob <- predict(model_glm,
+  newdata = banknoty_test,
+  type = "response"
+)
+```
+### Macierz pomyłek:
+```{r}
+banknoty_test_prob <- ifelse(banknoty_test_prob > 0.5, "Fake", "True")
+conf_glm <- table(pred = banknoty_test_prob, actual = banknoty_test$Class)
+conf_glm
+```
+### Dokładność:
+```{r}
+acc_glm <- (conf_glm[1, 2] + conf_glm[2, 1]) / count(banknoty_test)
+acc_glm
+```
+
+## Podsumowanie
+Jak widać model regresji logistycznej wypada trochę lepiej pod względem dokładności
+```{r}
+acc_glm - acc_rf
+```
+
+Jak widzimy w tabeli niżej 533 wyników jest zgodna, oraz jedynie 16 predykcji się różni
+```{r}
+test_with_pred <- banknoty_test
+test_with_pred$glm <- banknoty_test_prob
+test_with_pred$rf <- pred_rf
+test_with_pred$pred <- ifelse(test_with_pred$glm == test_with_pred$rf, "Same", "Different")
+test_with_pred %>% count(pred, glm, rf)
+test_with_pred %>% count(pred)
+```
+
+
+### Czułość i swoistość dla obu modeli (na zbiorze testowym)
+
+Z macierzy pomyłek liczymy precyzję w rzeczywistych klasach. Czyli tutaj precyzję na banknotach fałszywych -czułość. Precyzje na banknotach prawdziwych - swoistość (Bo naszym pozytywnym wynikiem będzie znalezienie banknotu fałszywego). Mamy trochę pomieszane kolejności w tabelkach więc trzeba uważać na indeksy. Widzimy że czułośc jest identyczna, ale swoistość jest lepsza w modelu logistycznym.
+```{r}
+conf_rf
+czulosc_rf <- conf_rf[2, 2] / (conf_rf[1, 2] + conf_rf[2, 2])
+czulosc_rf
+swoistosc_rf <- conf_rf[1, 1] / (conf_rf[2, 1] + conf_rf[1, 1])
+swoistosc_rf
+
+conf_glm
+czulosc_glm <- conf_glm[1, 2] / (conf_glm[1, 2] + conf_glm[2, 2])
+czulosc_glm
+swoistosc_glm <- conf_glm[2, 1] / (conf_glm[2, 1] + conf_glm[1, 1])
+swoistosc_glm
+```
+
+### Istotność zmiennych
+Patrząc na oba wykresy widzimy że proporcje są inne. Dla obu modeli kolejność istotności jest taka sama. Różnica jest na zmiennych V4 i V2. Dla lasu istotniejsza jest zmienna V4 niż w modelu logistycznym. Z kolei w logistycznym zmienna V2 jest istotniejsza niż w drugim modelu.
+```{r}
+# method
+# "model" - model specific VI - więc otrzymamy różne dla obu modeli metody
+# "firm" - variance based - na podstawie variancji
+# "permute" - perutation
+# "shap" - shapley
+
+model_rf %>% vip(horiz = FALSE, method = "firm") + ggtitle("Random forest")
+model_glm %>% vip(horiz = FALSE, method = "firm") + ggtitle("Logistic Regresion")
+```
+
+### Który z model 
+Patrząc na precyzję obu modeli, na danych które posiadamy. Powinniśmy wybrać model regresji logistycznej. Nie mamy tutaj dylematu czy chcemy bardziej czuły lub swoisty model. Regresja logistyczna ma tutaj lepszą swoistość, a czułość jest identyczna.
+
+Gdyby róznica istniała, to myślę, że podczas prowadzenia sklepu błędne zaklasyfikowanie prawdziwego banknotu jako fałszywego raczej nas nie bedzie kosztować, bo możemy poprosić klienta o inny i do transakcji i tak dojdzie. Jeżeli natomiast zaklasyfikujemy fałszywy jako prawdziwy to tracimy pieniądze o równowartości tego banknotu. Tak więc przypadek False Negative jest dla nas bardzo kosztowny (bo u nas przypadek pozytywny to banknot fałszywy).
+Więc w tym problemie czułość jest znacznie istotniejsza i na nią powinniśmy zwrócić uwagę w pierwszej kolejnośći.
+

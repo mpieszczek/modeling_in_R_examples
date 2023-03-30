@@ -1,0 +1,81 @@
+---
+title: "Regresja - liniowa, wielomianowa, drzewo regresji"
+author: "Mateusz Pieszczek"
+date: "4 lutego 2022"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    theme: cerulean
+    highlight: tango
+    df_print: paged
+---
+
+
+
+## Potrzebne biblioteki
+```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ISLR)
+library(rpart)
+library(rpart.plot)
+```
+
+## Zbiór danych
+Użyjemy zbioru danych o siedzeniach samochodów. Dokonany analizy ich cen i wyników sprzedaży.
+
+```{r}
+Carseats
+```
+## Regresja liniowa
+
+Sprawdźmy na początek jaki wpływ na sprzedarz siedzeń ma ich cena. Na wykresie mamy regresję liniową i sześcienną.
+
+```{r}
+Carseats %>%
+  ggplot(aes(x = Sales, y = Price)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ x, color = "red") +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ poly(x, degree = 3), color = "blue") +
+  theme_minimal() +
+  ggtitle("Sprzedaż siedzeń, a ich cena")
+```
+
+Zobaczmy teraz jaki wpływ ma reszta zmiennych:
+
+Jak widzimy współczynnik $$R^2 =  0.8734$$
+
+```{r}
+model_lm <-
+  lm(Sales ~ ., data = Carseats)
+summary(model_lm)
+```
+
+Ciekawą w tym zbiorze danych jest zmienna `ShelveLocGood`.
+Współczynnik ten mówi nam że jednostkowa zmiana `ShelveLocGood` prowadzi do zmiany `Sales` o współczynnik(tutaj ~ 4.85). Należy jednak zauważyć że zmienna ShelveLocGood to zmienna pomocnicza powstała przez mapowanie zmiennej kategorycznej jaką jest `ShelveLoc` do 2 zmiennych numerycznych `ShelveLocGood` oraz `ShelveLocMedium`. Jeżeli `ShelveLocGood` = 1 to oznacza po prostu żę `ShelveLoc` = "Good".
+
+Czyli jeżeli `ShelveLoc` = "Good" to nasza sprzedaż będzie większa o 4850 sprzedanych siedzeń niż jeśli `ShelveLoc` = "Bad" lub "Medium".
+
+
+Wyznaczmy MSE, modelu (na całym zbiorze):
+
+```{r}
+mean(model_lm$residuals^2)
+```
+
+## Drzewo regresyjne
+
+Wyrysujmy drzewo regresji dla tych danych, dla zmiennej szukanej: `Sales`
+Widać że na diagramie drzewa, nie zostały użyte zmienne: Education, Urban oraz US.
+
+```{r fig.height=11, fig.width=15}
+model_tree <- rpart(Sales ~ ., data = Carseats)
+rpart.plot(model_tree,
+  extra = 1
+)
+```
+
+
+```{r}
+model_tree$variable.importance
+``` 
