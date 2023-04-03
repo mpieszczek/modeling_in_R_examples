@@ -2,24 +2,24 @@
 title: "MNIST - zaliczenie"
 author: "Mateusz Pieszczek"
 date: "15 czerwca 2021"
-output: 
-  html_document: 
-    highlight: tango
-    theme: cerulean
-    df_print: paged
-    toc: true
+output:
+  md_document:
+    variant: "markdown_github"
+    toc: FALSE
+    df_print: kable
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
-
+# Potrzebne biblioteki
 ```{r}
 library(keras)
 library(tidyverse)
 library(png)
 ```
-# Odrwracamy kolor w danych testowych:
+# Zbiór danych
+Sprawdzimy jak nasz sieć się zachowa dla odwróconych kolorów w danych testowych:
 ```{r}
 mnist <- dataset_mnist()
 mnist$test$x <- 255 - mnist$test$x
@@ -38,42 +38,46 @@ y_test <- to_categorical(mnist$test$y, num_classes = 10)
 # Model sieci gęstej
 Używamy tu dosyć prostej sieci
 ```{r}
-model_dense <- keras_model_sequential() %>% 
+model_dense <- keras_model_sequential() %>%
   layer_dense(units = 64, activation = "relu", input_shape = 28 * 28) %>%
-  layer_dense(units = 32, activation = "relu") %>% 
+  layer_dense(units = 32, activation = "relu") %>%
   layer_dense(units = 10, activation = "softmax")
 summary(model_dense)
 ```
-
+## Kompilacja
 ```{r}
-model_dense %>% 
+model_dense %>%
   compile(
     optimizer = "rmsprop",
     loss = "categorical_crossentropy",
     metrics = "accuracy"
-    )
+  )
 ```
-Uczenie:
+## Uczenie
 ```{r}
-historia_model_dense <- model_dense %>% 
-  fit(x_train, y_train, 
-      epochs = 20, 
-      batch_size = 200)
+historia_model_dense <- model_dense %>%
+  fit(x_train, y_train,
+    epochs = 20,
+    batch_size = 200
+  )
 ```
 
-Teraz sprawdźmy jak taki model poradzi sobie na odwróconych zdjęciach.
+Teraz sprawdźmy jak taki model poradzi sobie na zbiorze testowym z odwróconymi zdjęciami.
 ```{r}
 model_dense %>% evaluate(x_test, y_test)
 ```
-Jak widzimy słabo dokładność wynosi zaledwie 8%. Dla porównania model nadając losowe etykiety powinien osiągnąć 10% na wzgldnie regularnym zbiorze testowym.
-W zbiorze testowym mamy w miarę równomierny rozkład liczb.
+
+Jak widzimy słabo. Dokładność wynosi zaledwie 8%. Dla porównania model nadając losowe etykiety powinien osiągnąć 10% na względnie regularnym zbiorze testowym.
+A w zbiorze testowym mamy w miarę równomierny rozkład liczb.
 ```{r}
 table(mnist$test$y)
 ```
 Jeśli spojrzymy na macierz pomyłek, to widzimy że ogromnej większości model przypisał tą samą etykietę: 5.
 ```{r}
 y_test_pred <- predict(model_dense, x_test) %>% k_argmax()
-y_test_pred <- y_test_pred %>% as.matrix() %>% as.vector()
+y_test_pred <- y_test_pred %>%
+  as.matrix() %>%
+  as.vector()
 tabela <- table(pred = y_test_pred, prawda = mnist$test$y)
 tabela
 ```
@@ -93,7 +97,8 @@ for (i in 1:25) {
 Jak widać model sieci gęstej nie radzi sobie z odwróconymi kolorami.
 Sprawdźmy teraz jak sprawdzi się sieć konwolucyjna.
 
-
+# Sieć konwolucyjna
+## Przygotowanie danych
 Korzystamy z tych samych danych, ale muszą mieć one inny format.
 ```{r}
 c(c(train_images, train_labels), c(test_images, test_labels)) %<-% mnist
@@ -106,43 +111,51 @@ test_images <- test_images / 255
 train_labels <- to_categorical(train_labels)
 test_labels <- to_categorical(test_labels)
 ```
-# Tworzymy model
+## Tworzymy model
 ```{r}
 model_conv <- keras_model_sequential() %>%
-  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu", 
-               input_shape = c(28, 28, 1)) %>%
+  layer_conv_2d(
+    filters = 32, kernel_size = c(3, 3), activation = "relu",
+    input_shape = c(28, 28, 1)
+  ) %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
   layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-  layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>%
   layer_flatten() %>%
   layer_dense(units = 64, activation = "relu") %>%
   layer_dense(units = 10, activation = "softmax")
 ```
+## Kompilacja
 ```{r}
 model_conv %>% compile(
- optimizer = "rmsprop",
- loss = "categorical_crossentropy",
- metrics = "accuracy"
-)
-
-model_conv %>% fit(
- train_images, train_labels,
- epochs = 5, 
- batch_size=64
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = "accuracy"
 )
 ```
-Sprawdźmy czy model radzi sobie lepiej:
+## Uczenie
+```{r}
+model_conv %>% fit(
+  train_images, train_labels,
+  epochs = 5,
+  batch_size = 64
+)
+```
+## Wynik
+Sprawdźmy czy model radzi sobie lepiej
 ```{r}
 results <- model_conv %>% evaluate(test_images, test_labels)
 results
 ```
-Mamy zdcydowaną poprawę w porównaniu z poprzednimi 10%. Dokładność ~50%, to wciąż mało, ale jako że uczyliśmy model na danych o odróconych kolorach, ciekawym jest że sobie z nimi w ogóle poradził.
+Mamy zdecydowaną poprawę w porównaniu z poprzednimi 10%. Dokładność ~50%, to wciąż mało, ale jako że uczyliśmy model na danych o odróconych kolorach, ciekawym jest że sobie z nimi w ogóle poradził.
 
 ```{r fig.height=10, fig.width=10}
 
 y_test_pred_conv <- predict(model_conv, test_images) %>% k_argmax()
-y_test_pred_conv <- y_test_pred_conv %>% as.matrix() %>% as.vector()
+y_test_pred_conv <- y_test_pred_conv %>%
+  as.matrix() %>%
+  as.vector()
 
 par(mfrow = c(5, 5))
 
@@ -153,20 +166,25 @@ bledy_y <- mnist$test$y[numery_z_bledami]
 
 for (i in 1:25) {
   plot(as.raster(bledy_x[i, , ], max = 255))
-  title(paste("cyfra:", bledy_y[i], "  pred:", y_test_pred_conv[numery_z_bledami][i]))
+  title(paste(
+    "cyfra:",
+    bledy_y[i],
+    "  pred:",
+    y_test_pred_conv[numery_z_bledami][i]
+  ))
 }
 ```
 
 Testując teraz model na rysunku w gimpie.
 ```{r}
 x <- array(dim = c(6, 28, 28))
-x[1,,] = readPNG("cyfry_1.png")[,,1]
-x[2,,] = readPNG("cyfry_2.png")[,,1]
-x[3,,] = readPNG("cyfry_3.png")[,,1]
-x[4,,] = readPNG("cyfry_4.png")[,,1]
-x[5,,] = readPNG("cyfry_5.png")[,,1]
-x[6,,] = readPNG("cyfry_6.png")[,,1]
-my_labels = c(9,8,7,6,2,1)
+x[1, , ] <- readPNG("dane/cyfry_1.png")[, , 1]
+x[2, , ] <- readPNG("dane/cyfry_2.png")[, , 1]
+x[3, , ] <- readPNG("dane/cyfry_3.png")[, , 1]
+x[4, , ] <- readPNG("dane/cyfry_4.png")[, , 1]
+x[5, , ] <- readPNG("dane/cyfry_5.png")[, , 1]
+x[6, , ] <- readPNG("dane/cyfry_6.png")[, , 1]
+my_labels <- c(9, 8, 7, 6, 2, 1)
 my_x_test <- array_reshape(x, dim = c(6, 28, 28, 1))
 my_y_test <- to_categorical(my_labels, num_classes = 10)
 ```
@@ -179,7 +197,9 @@ Dokładność jest słaba ale możemy zobaczyć co jest przyczyną. 8 została o
 ```{r fig.height=10, fig.width=10}
 
 my_y_test_pred_conv <- predict(model_conv, my_x_test) %>% k_argmax()
-my_y_test_pred_conv <- my_y_test_pred_conv %>% as.matrix() %>% as.vector()
+my_y_test_pred_conv <- my_y_test_pred_conv %>%
+  as.matrix() %>%
+  as.vector()
 
 par(mfrow = c(5, 5))
 

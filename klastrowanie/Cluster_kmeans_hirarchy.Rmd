@@ -4,16 +4,17 @@ author: "Mateusz Pieszczek"
 date: "4 lutego 2022"
 output:
   md_document:
-    variant: markdown_github
-    toc: true
-    toc_depth: 4
-    #theme: cerulean
-    #highlight: tango
-    df_print: paged
+    variant: "markdown_github"
+    toc: FALSE
+    df_print: kable
 ---
 
-### Potrzebne biblioteki
-```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
+```
+
+# Potrzebne biblioteki
+```{r ładowanie potrzebnych pakietów}
 library(cluster.datasets)
 library(tidyverse)
 library(tidymodels)
@@ -21,8 +22,8 @@ library("cluster")
 library("factoextra")
 ```
 
-### Zbiór danych
-##### Uzyjemy zbioru danych mleka różnych ssaków.
+# Zbiór danych
+### Uzyjemy zbioru danych mleka różnych ssaków.
 
 Ładowanie i wyswietlanie zbiór danych `all.mammals.milk.1956`. Dane zawierają wartości procentowe. Np mleko końskie ma 90.1% wody oraz 1% tłuszczu.
 
@@ -43,7 +44,6 @@ Man <- data.frame(
   ash = 0.2
 )
 mammals <- rbind(Man, all.mammals.milk.1956)
-mammals
 ```
 
 ### Ze względu na grupowanie i łatwiejszy odczyt późniejszych wyników użyjemy kolumny `name` jako klucza głównego.
@@ -60,19 +60,19 @@ ssaki %>% head(5)
 
 ```{r}
 ssaki_scaled <- ssaki %>% scale()
-ssaki_scaled
+head(ssaki_scaled)
 ```
 
-## Grupowanie metodą $k$-średnich
+# Grupowanie metodą $k$-średnich
 
-##### Wyznaczamy podział na 3 klastry z pomocą algorytmy k-średnich. 
+### Wyznaczamy podział na 3 klastry z pomocą algorytmy k-średnich. 
 ```{r}
 set.seed(1234)
 klastry_k_means <- ssaki_scaled %>%
   kmeans(centers = 3, iter.max = 100, nstart = 25)
 ```
 
-### Czy nasz podział ma sens?
+## Czy nasz podział ma sens?
 Najmniejszy klaster to nr 3 jest w nim tylko foka i delfin. Widać że proporcje się u nich znacząco różnią. Posiadają bardzo mało wody i dużo tłuszczu. Jeżeli spojrzymy na oryginalne dane to jest to poniżej 50% wody i powyżej 30% tłuszczu.
 Różnice między klastrem 1 i 2 są bardziej subtelnę to ciężko ocenić. Na pewno 1 posiadają więcej białka oraz posiadają średnio mniej wody i laktozy.
 ```{r}
@@ -93,9 +93,9 @@ mammals %>%
 
 
 
-## Grupowanie hierarchiczne
+# Grupowanie hierarchiczne
 
-#####  Zastosujemy teraz metodę klastrowania hierarchicznego z łączeniami *complete*, *average* i *single*.
+###  Zastosujemy teraz metodę klastrowania hierarchicznego z łączeniami *complete*, *average* i *single*.
 
 ```{r}
 # maciez odległosci
@@ -136,14 +136,10 @@ fviz_dend(model_single,
 )
 ```
 
-## Wnioski
+# Wnioski
 
 Jak widać grupa nr 3 się ostała jest na tyle charakterystyczna że jest wykrywana w każdym przypadku. O pozostałych ciężko powiedzieć to samo.
-
-
-
-##### Jeżeli zadamy sobie pytanie: Do kogo w tym zbiorze danych najbardziej podobny jest człowiek? To najłatiwej chyba spojrzeć na macierz odległości, z użyciem metryki euklidesowej.
-
+Jeżeli zadamy sobie pytanie: Do kogo w tym zbiorze danych najbardziej podobny jest człowiek? To najłatiwej chyba spojrzeć na macierz odległości, z użyciem metryki euklidesowej.
 Najbardziej podobnym do człowieka(poza samym człowiekiem) na tym zbiorze danych jest jest małpa.
 ```{r}
 as.matrix(res.dist)[1, ] %>% sort()
@@ -152,7 +148,7 @@ as.matrix(res.dist)[1, ] %>% sort()
 
 
 
-##### Podobnie możemy odczytać, że 2 najbardziej do siebie zblizone gatunki to sarna i renifer.
+### Podobnie możemy odczytać, że 2 najbardziej do siebie zblizone gatunki to sarna i renifer.
 
 ```{r}
 min_dist <- min(res.dist) # res.dist nie ma przękątnych więc minimum bedize poprzwne
@@ -161,7 +157,7 @@ which(distance_matrix == min_dist, arr.ind = TRUE)
 min_dist
 ```
 
-##### Z dendrogramu można wyczytać dosyć nieintuicyjne podobieństwa składu mleka.
+### Z dendrogramu można wyczytać dosyć nieintuicyjne podobieństwa składu mleka.
 Tak jak podejrzewamy podobieństwo foka jest podobna do delfina(ssaki wodne). Zaskakują gatunki podobne do człowieka (gałąź po lewej), poza małpą i orangutanem pojawiają się tam o dziwo: hipopotam, koń, muł i osioł. W szczególności koń który jest prawie tak samo podobny do człowieka jak małpa.
 
 ```{r}

@@ -16,19 +16,6 @@ możesz zapoznać się [na tej stronie](https://www.openml.org/d/1462).
 
 ``` r
 banknoty <- read_csv("banknote_authentication.csv")
-```
-
-    ## 
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## cols(
-    ##   V1 = col_double(),
-    ##   V2 = col_double(),
-    ##   V3 = col_double(),
-    ##   V4 = col_double(),
-    ##   Class = col_double()
-    ## )
-
-``` r
 banknoty$Class <- factor(banknoty$Class)
 is.factor(banknoty$Class)
 ```
@@ -191,11 +178,6 @@ dostepnych zmiennych
 
 ``` r
 model_glm <- glm(Class ~ ., data = banknoty_train, family = "binomial")
-```
-
-    ## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
-
-``` r
 summary(model_glm)
 ```
 
@@ -374,13 +356,13 @@ w logistycznym zmienna V2 jest istotniejsza niż w drugim modelu.
 model_rf %>% vip(horiz = FALSE, method = "firm") + ggtitle("Random forest")
 ```
 
-![](Classification_randforest_reglog_files/figure-markdown_github/unnamed-chunk-17-1.png)
+![](Classification_randforest_reglog_files/figure-markdown_github/unnamed-chunk-18-1.png)
 
 ``` r
 model_glm %>% vip(horiz = FALSE, method = "firm") + ggtitle("Logistic Regresion")
 ```
 
-![](Classification_randforest_reglog_files/figure-markdown_github/unnamed-chunk-17-2.png)
+![](Classification_randforest_reglog_files/figure-markdown_github/unnamed-chunk-18-2.png)
 
 Który z modeli?
 ---------------

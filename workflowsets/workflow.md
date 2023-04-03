@@ -1,31 +1,22 @@
----
-title: "Workflowsets - przyładowe użycie"
-author: "Mateusz Pieszczek"
-date: "15 06 2022"
-output:
-  md_document:
-    variant: "markdown_github"
-    toc: FALSE
-    df_print: kable
----
-
 Możemy użyć `workflowsets` aby połączyć w jeden strumień wiele modeli.
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-```
-# Potrzebne biblioteki
-```{r}
+Potrzebne biblioteki
+====================
+
+``` r
 library(tidyverse)
 library(tidymodels)
 library(discrim)
 library(dplyr)
 ```
 
-# Generowanie danych
-Tworzymy prosty zbiór danych wielu pierścieni losowo wygenerowanych punktów, które kolorujemy ze wzlgędu na odległość od punktu (0,0).
-```{r}
+Generowanie danych
+==================
 
+Tworzymy prosty zbiór danych wielu pierścieni losowo wygenerowanych
+punktów, które kolorujemy ze wzlgędu na odległość od punktu (0,0).
+
+``` r
 n_in_circ <- 1000
 angle_1 <- runif(n = n_in_circ, min = 0, max = 2 * pi)
 radius_1 <- rnorm(n = n_in_circ, mean = 1, sd = 0.5)
@@ -54,16 +45,23 @@ raw_data <- raw_data %>%
           colors[1], colors[2])) %>%
   dplyr::select(-c(angle, radius))
 ```
+
 Na plaszczyźnie ten zbiór danych wygląda następująco.
-```{r}
+
+``` r
 ggplot(raw_data, aes(x, y, colour = color_org)) +
   geom_point() +
   scale_color_manual(values = colors, breaks = colors)
 ```
 
-# Przygotowanie danych i workflow
+![](workflow_files/figure-markdown_github/unnamed-chunk-3-1.png)
+
+Przygotowanie danych i workflow
+===============================
+
 Dzielimy zbiór na treningowy i testowy.
-```{r}
+
+``` r
 set.seed(1234)
 data_split <- initial_split(raw_data, prop = 0.8, strata = "color_org")
 
@@ -71,16 +69,21 @@ data_train <- training(data_split)
 data_test <- testing(data_split)
 ```
 
-Tworzymy recepty. Pierwsza podstawowa, normalizuje zmienne. Druga dodaje zmienną $x^2+y^2$.
-```{r}
+Tworzymy recepty. Pierwsza podstawowa, normalizuje zmienne. Druga dodaje
+zmienną *x*<sup>2</sup> + *y*<sup>2</sup>.
+
+``` r
 rec_base <- recipe(color_org ~ ., data = data_train) %>%
   step_normalize(all_numeric_predictors())
 
 rec_with_squares <- rec_base %>%
   step_mutate(x2_y2 = x * x + y * y)
 ```
-Definiujemy paramtery modeli. Użyjemy w tym projekcie drzewa decyzyjnego, regresji logistycznej oraz klasyfikatora bayesowskiego.
-```{r}
+
+Definiujemy paramtery modeli. Użyjemy w tym projekcie drzewa
+decyzyjnego, regresji logistycznej oraz klasyfikatora bayesowskiego.
+
+``` r
 color_tree <- decision_tree(
   cost_complexity = 0.1,
   tree_depth = 20,
@@ -97,8 +100,11 @@ color_bayes <- naive_Bayes() %>%
   set_engine("klaR") %>%
   set_mode("classification")
 ```
-Tworzymy workflow z powyższych modeli i recept. Sprawdzimy każdy z każdym.
-```{r}
+
+Tworzymy workflow z powyższych modeli i recept. Sprawdzimy każdy z
+każdym.
+
+``` r
 workflow_color <- workflow_set(
   preproc = list(simple = rec_base, squares = rec_with_squares),
   models = list(tree = color_tree,
@@ -107,30 +113,61 @@ workflow_color <- workflow_set(
   cross = TRUE
 )
 ```
-# Wyuczenie modeli
-```{r}
+
+Wyuczenie modeli
+================
+
+``` r
 folds <- vfold_cv(data_train, v = 5, strata = color_org)
 ```
-Jako że nie dostrajamy parametrów, to użyjemy fit_resample.
-```{r}
+
+Jako że nie dostrajamy parametrów, to użyjemy fit\_resample.
+
+``` r
 my_models <- workflow_color %>%
   workflow_map("fit_resamples",
     resamples = folds,
     metrics   = metric_set(accuracy)
   )
 ```
-# Wnioski
+
+Wnioski
+=======
+
 Sprawdźmy jak prezentują się wyniki
-```{r}
+
+``` r
 autoplot(my_models)
 ```
 
-Jak widać poniżej, najlepiej radzi sobie regresja logistyczna, której dodamy zmienną $x^2+y^2$. Ma to sens, jest to kwadrat promienia, więc ten model powinien sobie radzić dobrze posiadając tą zmienną. Niuesie ona dużo informacji. Natomiast z modeli posiadających tylko zmienne x,y. Najlepiej radzi sobie klasyfikator Bayesowski, choć niewiele lepiej od drzewa decyzyjnego. Dla nich z resztą wprowadzenie zmiennej $x^2+y^2$ pomaga, ale niewiele. Widzimy natomiast że prosta regresja logistyczna, kompletnie sobie nie radzi.
-```{r}
+![](workflow_files/figure-markdown_github/unnamed-chunk-10-1.png)
+
+Jak widać poniżej, najlepiej radzi sobie regresja logistyczna, której
+dodamy zmienną *x*<sup>2</sup> + *y*<sup>2</sup>. Ma to sens, jest to
+kwadrat promienia, więc ten model powinien sobie radzić dobrze
+posiadając tą zmienną. Niuesie ona dużo informacji. Natomiast z modeli
+posiadających tylko zmienne x,y. Najlepiej radzi sobie klasyfikator
+Bayesowski, choć niewiele lepiej od drzewa decyzyjnego. Dla nich z
+resztą wprowadzenie zmiennej *x*<sup>2</sup> + *y*<sup>2</sup> pomaga,
+ale niewiele. Widzimy natomiast że prosta regresja logistyczna,
+kompletnie sobie nie radzi.
+
+``` r
 rank_results(my_models, rank_metric = "accuracy", select_best = FALSE) %>% dplyr::select(rank, mean, model, wflow_id, .config)
 ```
+
+|  rank|       mean| model          | wflow\_id         | .config               |
+|-----:|----------:|:---------------|:------------------|:----------------------|
+|     1|  0.9992497| logistic\_reg  | squares\_log\_reg | Preprocessor1\_Model1 |
+|     2|  0.9980003| naive\_Bayes   | squares\_bayes    | Preprocessor1\_Model1 |
+|     3|  0.9975003| decision\_tree | squares\_tree     | Preprocessor1\_Model1 |
+|     4|  0.9957509| naive\_Bayes   | simple\_bayes     | Preprocessor1\_Model1 |
+|     5|  0.9877500| decision\_tree | simple\_tree      | Preprocessor1\_Model1 |
+|     6|  0.6040001| logistic\_reg  | simple\_log\_reg  | Preprocessor1\_Model1 |
+
 Pokażmy teraz wizualnie wyniki.
-```{r}
+
+``` r
 predict_for_workflow <- function(used_workflow) {
   color_fit <- fit(used_workflow, data_train)
   color_test_result <- predict(color_fit, data_test)
@@ -138,8 +175,11 @@ predict_for_workflow <- function(used_workflow) {
   result_with_expected
 }
 ```
-Zapisujemy predykcje wszystkich modeli żemy móc je wyświetlić na jednym wykresie ggplota.
-```{r}
+
+Zapisujemy predykcje wszystkich modeli żemy móc je wyświetlić na jednym
+wykresie ggplota.
+
+``` r
 result <- rbind()
 for (wf_name in my_models$wflow_id) {
   result_temp <- predict_for_workflow(extract_workflow(my_models, wf_name))
@@ -148,7 +188,7 @@ for (wf_name in my_models$wflow_id) {
 }
 ```
 
-```{r fig.height=16, fig.width=16}
+``` r
 result %>%
   ggplot(aes(x, y,
     color = ifelse(.pred_class == color_org, "dobrze", "źle"),
@@ -166,3 +206,5 @@ result %>%
   facet_wrap(~model, nrow = 3) +
   coord_equal()
 ```
+
+![](workflow_files/figure-markdown_github/unnamed-chunk-14-1.png)

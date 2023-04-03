@@ -6,13 +6,16 @@ output:
   md_document:
     variant: "markdown_github"
     toc: FALSE
-    df_print: kable #"default", "kable", "tibble", and "paged"
+    df_print: kable
 ---
 
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
+```
 
 # Ładowanie bibliotek
-```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+```{r}
 library(tidyverse)
 library(randomForest)
 library(tidymodels)

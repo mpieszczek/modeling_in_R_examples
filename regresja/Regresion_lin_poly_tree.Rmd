@@ -3,31 +3,31 @@ title: "Regresja - liniowa, wielomianowa, drzewo regresji"
 author: "Mateusz Pieszczek"
 date: "4 lutego 2022"
 output:
-  html_document:
-    toc: true
-    toc_depth: 4
-    theme: cerulean
-    highlight: tango
-    df_print: paged
+  md_document:
+    variant: "markdown_github"
+    toc: FALSE
+    df_print: kable
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
+```
 
-
-## Potrzebne biblioteki
-```{r ładowanie potrzebnych pakietów, message=FALSE, warning=FALSE}
+# Potrzebne biblioteki
+```{r}
 library(tidyverse)
 library(ISLR)
 library(rpart)
 library(rpart.plot)
 ```
 
-## Zbiór danych
+# Zbiór danych
 Użyjemy zbioru danych o siedzeniach samochodów. Dokonany analizy ich cen i wyników sprzedaży.
 
 ```{r}
-Carseats
+Carseats %>% head()
 ```
-## Regresja liniowa
+# Regresja liniowa
 
 Sprawdźmy na początek jaki wpływ na sprzedarz siedzeń ma ich cena. Na wykresie mamy regresję liniową i sześcienną.
 
@@ -35,8 +35,14 @@ Sprawdźmy na początek jaki wpływ na sprzedarz siedzeń ma ich cena. Na wykres
 Carseats %>%
   ggplot(aes(x = Sales, y = Price)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE, formula = y ~ x, color = "red") +
-  geom_smooth(method = "lm", se = FALSE, formula = y ~ poly(x, degree = 3), color = "blue") +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              formula = y ~ x,
+              color = "red") +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              formula = y ~ poly(x, degree = 3),
+              color = "blue") +
   theme_minimal() +
   ggtitle("Sprzedaż siedzeń, a ich cena")
 ```
@@ -63,7 +69,7 @@ Wyznaczmy MSE, modelu (na całym zbiorze):
 mean(model_lm$residuals^2)
 ```
 
-## Drzewo regresyjne
+# Drzewo regresyjne
 
 Wyrysujmy drzewo regresji dla tych danych, dla zmiennej szukanej: `Sales`
 Widać że na diagramie drzewa, nie zostały użyte zmienne: Education, Urban oraz US.
