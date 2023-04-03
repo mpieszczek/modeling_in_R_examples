@@ -3,11 +3,12 @@ title: "Klastrowanie - k-średnich oraz hierarchiczne"
 author: "Mateusz Pieszczek"
 date: "4 lutego 2022"
 output:
-  html_document:
+  md_document:
+    variant: markdown_github
     toc: true
     toc_depth: 4
-    theme: cerulean
-    highlight: tango
+    #theme: cerulean
+    #highlight: tango
     df_print: paged
 ---
 
