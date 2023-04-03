@@ -3,12 +3,12 @@ title: "Klasyfikacja - lasy losowe, regresja logistyczna porównanie"
 author: "Mateusz Pieszczek"
 date: "4 lutego 2022"
 output:
-  md_document:
-    variant: markdown_github
+  html_document:
+    keep_md: true
     toc: true
     toc_depth: 4
-    #theme: cerulean
-    #highlight: tango
+    theme: cerulean
+    highlight: tango
     df_print: paged
 ---
 
